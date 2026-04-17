@@ -7,6 +7,7 @@
     "brain": "./src/bin.ts"
   },
   "scripts": {
+    "build": "tsc",
     "start": "tsx src/bin.ts",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"

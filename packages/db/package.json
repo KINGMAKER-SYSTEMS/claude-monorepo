@@ -11,6 +11,7 @@
     "./client": "./src/client.ts"
   },
   "scripts": {
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",

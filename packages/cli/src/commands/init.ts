@@ -12,6 +12,7 @@ import {
 } from "@brain/shared";
 import { discoverProjects } from "@brain/indexer/discovery";
 import { scanMany } from "@brain/indexer/scan";
+import { syncTranscripts, deriveAlerts } from "@brain/indexer";
 
 export function registerInit(program: Command): void {
   program
@@ -92,6 +93,18 @@ export function registerInit(program: Command): void {
       const results = await scanMany(detected);
       scanSpin.stop(`scanned ${pc.bold(String(results.length))} project(s)`);
 
-      p.outro(pc.green("done. try `brain projects`"));
+      const tSpin = p.spinner();
+      tSpin.start("syncing Claude Code transcripts…");
+      const tRes = await syncTranscripts();
+      tSpin.stop(
+        `${pc.bold(String(tRes.sessionsUpserted))} session(s) · ${pc.bold(String(tRes.openLoopsInserted))} open loop(s)`,
+      );
+
+      const aSpin = p.spinner();
+      aSpin.start("deriving alerts…");
+      const aRes = await deriveAlerts();
+      aSpin.stop(`${pc.bold(String(aRes.opened))} alert(s) opened`);
+
+      p.outro(pc.green("done. try `brain standup`"));
     });
 }

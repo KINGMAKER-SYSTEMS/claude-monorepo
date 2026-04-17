@@ -23,6 +23,15 @@ export const projectKind = pgEnum("project_kind", [
   "unknown",
 ]);
 
+export const projectStatus = pgEnum("project_status", [
+  "prototype",
+  "active",
+  "shipped",
+  "stale",
+  "abandoned",
+  "unknown",
+]);
+
 export const manifestSource = pgEnum("manifest_source", [
   "package_json",
   "pnpm_lock",
@@ -61,6 +70,24 @@ export const outboxOp = pgEnum("outbox_op", ["ins", "upd", "del"]);
 
 export const scanStatus = pgEnum("scan_status", ["running", "ok", "error"]);
 
+export const openLoopSource = pgEnum("open_loop_source", [
+  "transcript",
+  "todo_comment",
+  "commit_message",
+  "manual",
+]);
+
+export const openLoopStatus = pgEnum("open_loop_status", [
+  "open",
+  "done",
+  "dismissed",
+  "stale",
+]);
+
+export const alertSeverity = pgEnum("alert_severity", ["info", "warn", "urgent"]);
+
+export const alertStatusEnum = pgEnum("alert_status", ["open", "acknowledged", "resolved"]);
+
 // ----- projects -----
 export const projects = pgTable(
   "projects",
@@ -74,9 +101,19 @@ export const projects = pgTable(
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     lastScannedAt: timestamp("last_scanned_at", { withTimezone: true }),
+    summary: text("summary"),
+    status: projectStatus("status").notNull().default("unknown"),
+    readmeFirstPara: text("readme_first_para"),
+    framework: text("framework"),
+    todoCount: integer("todo_count").notNull().default(0),
+    serviceTokens: text("service_tokens").array().notNull().default(sql`'{}'::text[]`),
+    deployTargets: text("deploy_targets").array().notNull().default(sql`'{}'::text[]`),
+    lastCommitAt: timestamp("last_commit_at", { withTimezone: true }),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
   },
   (t) => ({
     rootPathUnique: uniqueIndex("projects_root_path_unique").on(t.rootPath),
+    statusIdx: index("projects_status_idx").on(t.status),
   }),
 );
 
@@ -234,7 +271,6 @@ export const embeddings = pgTable("embeddings", {
   ownerId: uuid("owner_id").notNull(),
   model: text("model").notNull(),
   contentHash: text("content_hash").notNull(),
-  // embedding_384 / embedding_1536 vector columns are added in a follow-up SQL migration
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -259,3 +295,75 @@ export const changesOutbox = pgTable("changes_outbox", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   syncedAt: timestamp("synced_at", { withTimezone: true }),
 });
+
+// ----- Claude Code sessions (transcripts) -----
+export const ccSessions = pgTable(
+  "cc_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    device: text("device").notNull(),
+    sessionUuid: text("session_uuid").notNull(),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
+    cwd: text("cwd"),
+    sourcePath: text("source_path").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    messageCount: integer("message_count").notNull().default(0),
+    userMessageCount: integer("user_message_count").notNull().default(0),
+    toolUseCount: integer("tool_use_count").notNull().default(0),
+    firstUserMessage: text("first_user_message"),
+    lastUserMessage: text("last_user_message"),
+    summary: text("summary"),
+    contentHash: text("content_hash"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("cc_sessions_device_uuid").on(t.device, t.sessionUuid),
+    projectTimeIdx: index("cc_sessions_project_time").on(t.projectId, t.startedAt),
+    timeIdx: index("cc_sessions_time").on(t.startedAt),
+  }),
+);
+
+// ----- open loops: things said/promised/TODO'd, not yet closed -----
+export const openLoops = pgTable(
+  "open_loops",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => ccSessions.id, { onDelete: "set null" }),
+    source: openLoopSource("source").notNull(),
+    text: text("text").notNull(),
+    sourceRef: text("source_ref"),
+    mentionedAt: timestamp("mentioned_at", { withTimezone: true }).notNull().defaultNow(),
+    status: openLoopStatus("status").notNull().default("open"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    dedupeKey: text("dedupe_key"),
+  },
+  (t) => ({
+    projectOpenIdx: index("open_loops_project_open").on(t.projectId, t.status, t.mentionedAt),
+    statusTimeIdx: index("open_loops_status_time").on(t.status, t.mentionedAt),
+  }),
+);
+
+// ----- alerts: actionable attention items -----
+export const alerts = pgTable(
+  "alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    severity: alertSeverity("severity").notNull().default("warn"),
+    title: text("title").notNull(),
+    detail: text("detail"),
+    actionHint: text("action_hint"),
+    status: alertStatusEnum("status").notNull().default("open"),
+    detectedAt: timestamp("detected_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    dedupeKey: text("dedupe_key"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (t) => ({
+    openSeverityIdx: index("alerts_open_severity").on(t.status, t.severity, t.detectedAt),
+  }),
+);

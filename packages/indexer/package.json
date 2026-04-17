@@ -8,9 +8,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./discovery": "./src/discovery.ts",
-    "./scan": "./src/scan.ts"
+    "./scan": "./src/scan.ts",
+    "./alerts": "./src/alerts.ts",
+    "./transcript-sync": "./src/transcript-sync.ts",
+    "./scanners/transcripts": "./src/scanners/transcripts.ts",
+    "./scanners/project-context": "./src/scanners/project-context.ts"
   },
   "scripts": {
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },

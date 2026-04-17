@@ -9,17 +9,23 @@ import { registerDeps } from "./commands/deps.js";
 import { registerGit } from "./commands/git.js";
 import { registerSearch } from "./commands/search.js";
 import { registerScan } from "./commands/scan.js";
+import { registerStandup } from "./commands/standup.js";
+import { registerTranscripts } from "./commands/transcripts.js";
+import { registerAlerts } from "./commands/alerts.js";
 
 const program = new Command();
 
 program
   .name("brain")
-  .description(pc.cyan("Claude Superbrain — your project & infra map"))
-  .version("0.0.1");
+  .description(pc.cyan("Claude Superbrain — actionable full-stack observability for your dev life"))
+  .version("0.0.2");
 
+registerStandup(program);
 registerInit(program);
 registerProjects(program);
 registerProject(program);
+registerAlerts(program);
+registerTranscripts(program);
 registerDeps(program);
 registerGit(program);
 registerSearch(program);

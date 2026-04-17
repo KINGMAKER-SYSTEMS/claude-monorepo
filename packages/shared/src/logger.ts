@@ -1,16 +1,18 @@
-import { pino, type Logger } from "pino";
+import { pino, type Logger, type LoggerOptions } from "pino";
 
 const isTTY = process.stdout.isTTY;
 
-export const logger: Logger = pino({
+const options: LoggerOptions = {
   level: process.env.LOG_LEVEL ?? "info",
-  transport: isTTY
-    ? {
-        target: "pino-pretty",
-        options: { colorize: true, translateTime: "SYS:HH:MM:ss", ignore: "pid,hostname" },
-      }
-    : undefined,
-});
+};
+if (isTTY) {
+  options.transport = {
+    target: "pino-pretty",
+    options: { colorize: true, translateTime: "SYS:HH:MM:ss", ignore: "pid,hostname" },
+  };
+}
+
+export const logger: Logger = pino(options);
 
 export function childLogger(bindings: Record<string, unknown>): Logger {
   return logger.child(bindings);
