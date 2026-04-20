@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { getDb, schema } from "@brain/db";
 
 export interface DerivedAlert {
-  projectId: string;
+  projectId: string | null;
   kind: string;
   severity: "info" | "warn" | "urgent";
   title: string;
@@ -78,6 +78,93 @@ export async function deriveAlerts(): Promise<{ opened: number; resolved: number
       });
     }
   }
+
+  // --- infra-derived alerts ---
+  const recently = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const projectNameById = new Map(projectsRows.map((p) => [p.id, p.name]));
+
+  // service_down: container with a project binding, last seen recently, but not running.
+  const downContainers = await db
+    .select({
+      id: schema.infraResources.id,
+      name: schema.infraResources.name,
+      projectId: schema.infraResources.projectId,
+      status: schema.infraResources.status,
+      lastSeenAt: schema.infraResources.lastSeenAt,
+      metadata: schema.infraResources.metadata,
+    })
+    .from(schema.infraResources)
+    .where(
+      and(
+        eq(schema.infraResources.kind, "container"),
+        inArray(schema.infraResources.status, ["exited", "stopped", "dead", "restarting"]),
+        gte(schema.infraResources.lastSeenAt, recently),
+      ),
+    );
+
+  for (const c of downContainers) {
+    if (!c.projectId) continue;
+    const pname = projectNameById.get(c.projectId) ?? "?";
+    derived.push({
+      projectId: c.projectId,
+      kind: "service_down",
+      severity: "warn",
+      title: `${pname}: container ${c.name} is ${c.status}`,
+      detail: `Docker container ${c.name} was last seen ${c.status} at ${c.lastSeenAt?.toISOString() ?? "?"}.`,
+      actionHint: `docker start ${c.name}`,
+      dedupeKey: keyFor("service_down", `${c.projectId}|${c.name}`),
+      metadata: { container: c.name, status: c.status },
+    });
+  }
+
+  // port_conflict: same endpoint claimed by >1 distinct dev_server pid in the
+  // last hour. We look at rows with status=running first (cheap), then cross-
+  // check metadata pids.
+  const recentDev = await db
+    .select({
+      id: schema.infraResources.id,
+      name: schema.infraResources.name,
+      projectId: schema.infraResources.projectId,
+      endpoint: schema.infraResources.endpoint,
+      metadata: schema.infraResources.metadata,
+      lastSeenAt: schema.infraResources.lastSeenAt,
+    })
+    .from(schema.infraResources)
+    .where(
+      and(
+        eq(schema.infraResources.kind, "dev_server"),
+        gte(schema.infraResources.lastSeenAt, new Date(now.getTime() - 60 * 60 * 1000)),
+      ),
+    );
+
+  const byEndpoint = new Map<string, typeof recentDev>();
+  for (const d of recentDev) {
+    const key = d.endpoint ?? d.name;
+    const bucket = byEndpoint.get(key) ?? [];
+    bucket.push(d);
+    byEndpoint.set(key, bucket);
+  }
+  for (const [endpoint, rows] of byEndpoint) {
+    const pids = new Set(
+      rows.map((r) => (r.metadata as { pid?: number } | null)?.pid).filter((v) => typeof v === "number"),
+    );
+    if (pids.size < 2) continue;
+    const firstRow = rows[0];
+    if (!firstRow) continue;
+    const projectId = rows.find((r) => r.projectId)?.projectId ?? null;
+    const pname = projectId ? projectNameById.get(projectId) ?? "?" : "local";
+    derived.push({
+      projectId,
+      kind: "port_conflict",
+      severity: "warn",
+      title: `${pname}: port ${endpoint} claimed by ${pids.size} processes`,
+      detail: `Multiple pids recently listened on ${endpoint}: ${[...pids].join(", ")}.`,
+      actionHint: `lsof -i ${endpoint}`,
+      dedupeKey: keyFor("port_conflict", endpoint),
+      metadata: { endpoint, pids: [...pids] },
+    });
+  }
+
 
   // Insert (ignore duplicates by dedupe key).
   let opened = 0;

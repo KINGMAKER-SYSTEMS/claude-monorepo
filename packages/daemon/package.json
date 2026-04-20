@@ -1,5 +1,5 @@
 {
-  "name": "@brain/indexer",
+  "name": "@brain/daemon",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -7,14 +7,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./discovery": "./src/discovery.ts",
-    "./scan": "./src/scan.ts",
-    "./alerts": "./src/alerts.ts",
-    "./transcript-sync": "./src/transcript-sync.ts",
-    "./infra-sync": "./src/infra-sync.ts",
-    "./scanners/transcripts": "./src/scanners/transcripts.ts",
-    "./scanners/project-context": "./src/scanners/project-context.ts",
-    "./scanners/infra": "./src/scanners/infra.ts"
+    "./ipc": "./src/ipc.ts",
+    "./client": "./src/client.ts"
   },
   "scripts": {
     "build": "tsc",
@@ -24,9 +18,10 @@
   },
   "dependencies": {
     "@brain/db": "workspace:*",
+    "@brain/indexer": "workspace:*",
     "@brain/shared": "workspace:*",
-    "drizzle-orm": "^0.34.0",
-    "simple-git": "^3.27.0"
+    "chokidar": "^4.0.1",
+    "drizzle-orm": "^0.34.0"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

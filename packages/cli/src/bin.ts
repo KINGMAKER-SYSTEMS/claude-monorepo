@@ -12,6 +12,8 @@ import { registerScan } from "./commands/scan.js";
 import { registerStandup } from "./commands/standup.js";
 import { registerTranscripts } from "./commands/transcripts.js";
 import { registerAlerts } from "./commands/alerts.js";
+import { registerWatch } from "./commands/watch.js";
+import { registerAsk } from "./commands/ask.js";
 
 const program = new Command();
 
@@ -30,6 +32,8 @@ registerDeps(program);
 registerGit(program);
 registerSearch(program);
 registerScan(program);
+registerWatch(program);
+registerAsk(program);
 
 async function main(): Promise<void> {
   try {

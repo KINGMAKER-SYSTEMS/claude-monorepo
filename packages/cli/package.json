@@ -13,7 +13,9 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
+    "@brain/daemon": "workspace:*",
     "@brain/db": "workspace:*",
+    "@brain/embedder": "workspace:*",
     "@brain/indexer": "workspace:*",
     "@brain/shared": "workspace:*",
     "@clack/prompts": "^0.7.0",

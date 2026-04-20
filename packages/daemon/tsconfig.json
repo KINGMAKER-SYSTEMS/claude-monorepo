@@ -9,8 +9,6 @@
   "references": [
     { "path": "../shared" },
     { "path": "../db" },
-    { "path": "../indexer" },
-    { "path": "../daemon" },
-    { "path": "../embedder" }
+    { "path": "../indexer" }
   ]
 }

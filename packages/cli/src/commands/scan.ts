@@ -5,6 +5,7 @@ import { loadConfig } from "@brain/shared";
 import { discoverProjects } from "@brain/indexer/discovery";
 import { scanMany, scanProject } from "@brain/indexer/scan";
 import { syncTranscripts } from "@brain/indexer";
+import { syncLocalInfra } from "@brain/indexer/infra-sync";
 import { deriveAlerts } from "@brain/indexer";
 
 export function registerScan(program: Command): void {
@@ -12,8 +13,9 @@ export function registerScan(program: Command): void {
     .command("scan [path]")
     .description("scan a single path, or re-scan every configured root when omitted")
     .option("--no-transcripts", "skip Claude Code transcript sync")
+    .option("--no-infra", "skip docker + dev-server scan")
     .option("--no-alerts", "skip alert derivation")
-    .action(async (path: string | undefined, opts: { transcripts: boolean; alerts: boolean }) => {
+    .action(async (path: string | undefined, opts: { transcripts: boolean; infra: boolean; alerts: boolean }) => {
       if (path) {
         const detected = discoverProjects(path, { maxDepth: 1 });
         if (detected.length === 0) {
@@ -53,6 +55,20 @@ export function registerScan(program: Command): void {
             `${res.sessionsSeen} session(s) seen · ${res.sessionsUpserted} upserted · ${res.openLoopsInserted} open loop(s)`,
           ),
         );
+      }
+
+      if (opts.infra !== false) {
+        const ispin = p.spinner();
+        ispin.start("scanning docker + dev servers…");
+        const res = await syncLocalInfra();
+        ispin.stop(
+          pc.green(
+            `${res.containers} container(s) · ${res.devServers} dev server(s) · ${res.stopped} stopped`,
+          ),
+        );
+        if (res.errors.length > 0) {
+          for (const e of res.errors) console.log(pc.dim(`   ${e}`));
+        }
       }
 
       if (opts.alerts !== false) {

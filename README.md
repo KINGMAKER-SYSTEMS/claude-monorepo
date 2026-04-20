@@ -60,9 +60,13 @@ BACKLOG
 packages/
   db/          Postgres schema + migrations + pg client
   shared/      Logger, TOML config, zod env validation
-  indexer/     Collectors: git, manifests, project-context, transcripts
-               + alert deriver
-  cli/         `brain` command (standup, projects, alerts, transcripts, …)
+  indexer/     Collectors: git, manifests, project-context, transcripts,
+               docker+dev-servers, + alert deriver
+  daemon/      fs-watch daemon, Unix-socket IPC, periodic ticks
+  embedder/    Pluggable embedders (OpenAI default, Voyage, Ollama),
+               LLM summary + open-loop refinement
+  cli/         `brain` command (standup, projects, alerts, transcripts,
+               watch, status, ask, summarize, refine, …)
 infra/
   docker-compose.yml    Local pg16 + pgvector
 ```
@@ -101,6 +105,11 @@ pnpm brain alerts refresh       # just re-derive alerts
 | `brain git [--dirty]` | Git state across projects. |
 | `brain deps [project \| --across pkg]` | Dependency queries. |
 | `brain search <q>` | Lexical search across projects/files/symbols/deps. |
+| `brain ask <q>` | Semantic search across summaries, transcripts, open loops. |
+| `brain watch [--detach]` | Run the background daemon (fs-watch + periodic ticks). |
+| `brain status` / `brain stop` | Inspect or terminate the running daemon. |
+| `brain summarize` | Generate LLM summaries for projects and embed them. |
+| `brain refine` | Rewrite messy open loops into actionable next steps. |
 
 ## What's in the DB
 
@@ -117,7 +126,7 @@ pnpm brain alerts refresh       # just re-derive alerts
 
 - **Phase 1** ✓ — monorepo scaffold, Postgres schema, git + manifest scanners, `brain projects/git/deps/search/scan`
 - **Phase 1.5** ✓ — project context enrichment (README, framework, infra files, TODO grep), Claude Code transcript ingestion, open loops, alert derivation, `brain standup`
-- **Phase 2** — fs-watch daemon, local infra scanner (`docker ps`, dev-server port detection), LLM-synthesized project summaries, embeddings for semantic recall
+- **Phase 2** ✓ — fs-watch daemon (`brain watch`), local infra scanner (`docker ps` + `lsof` dev servers, `service_down` / `port_conflict` alerts), pluggable embedder (OpenAI default + Voyage + Ollama), LLM-synthesized project summaries via Haiku, open-loop refinement, `brain ask` semantic search
 - **Phase 3** — cross-device transcript sync (Tailscale → shared Postgres on home-lab / Railway)
 - **Phase 4** — web dashboard (Next.js), deploy-target API integrations (Vercel, Railway, Fly), GitHub PR/CI integration
 - **Phase 5** — action layer (`brain fix <alert>` spawns headless Claude Code sessions), MCP server mode so Claude Desktop can query everything natively
@@ -127,4 +136,15 @@ pnpm brain alerts refresh       # just re-derive alerts
 
 Copy `.env.example` to `.env` if your local Postgres isn't at the default `postgres://postgres:postgres@localhost:5432/brain`.
 
-The `brain init` command writes config to `~/.config/brain/config.toml`.
+The `brain init` command writes config to `~/.config/brain/config.toml`. To
+change embedder:
+
+```toml
+[embedder]
+kind = "openai"          # or "voyage" or "ollama"
+model = "text-embedding-3-small"
+dim = 1536
+# api_key = "sk-…"       # optional — otherwise read from OPENAI_API_KEY
+```
+
+For the LLM summary writer, set `ANTHROPIC_API_KEY` in your shell.

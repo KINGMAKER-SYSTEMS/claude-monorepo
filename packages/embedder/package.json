@@ -1,20 +1,12 @@
 {
-  "name": "@brain/indexer",
+  "name": "@brain/embedder",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./discovery": "./src/discovery.ts",
-    "./scan": "./src/scan.ts",
-    "./alerts": "./src/alerts.ts",
-    "./transcript-sync": "./src/transcript-sync.ts",
-    "./infra-sync": "./src/infra-sync.ts",
-    "./scanners/transcripts": "./src/scanners/transcripts.ts",
-    "./scanners/project-context": "./src/scanners/project-context.ts",
-    "./scanners/infra": "./src/scanners/infra.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "build": "tsc",
@@ -26,7 +18,7 @@
     "@brain/db": "workspace:*",
     "@brain/shared": "workspace:*",
     "drizzle-orm": "^0.34.0",
-    "simple-git": "^3.27.0"
+    "smol-toml": "^1.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

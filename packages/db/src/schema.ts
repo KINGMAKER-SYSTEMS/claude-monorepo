@@ -6,6 +6,8 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  serial,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
@@ -64,7 +66,14 @@ export const infraKind = pgEnum("infra_kind", [
 
 export const secretSource = pgEnum("secret_source", ["dotenv", "op", "doppler", "railway"]);
 
-export const embeddingOwner = pgEnum("embedding_owner", ["file", "symbol", "readme_chunk"]);
+export const embeddingOwner = pgEnum("embedding_owner", [
+  "file",
+  "symbol",
+  "readme_chunk",
+  "project_summary",
+  "transcript_message",
+  "open_loop",
+]);
 
 export const outboxOp = pgEnum("outbox_op", ["ins", "upd", "del"]);
 
@@ -110,6 +119,9 @@ export const projects = pgTable(
     deployTargets: text("deploy_targets").array().notNull().default(sql`'{}'::text[]`),
     lastCommitAt: timestamp("last_commit_at", { withTimezone: true }),
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+    summarySource: text("summary_source"),
+    summaryHash: text("summary_hash"),
+    summaryGeneratedAt: timestamp("summary_generated_at", { withTimezone: true }),
   },
   (t) => ({
     rootPathUnique: uniqueIndex("projects_root_path_unique").on(t.rootPath),
@@ -339,10 +351,42 @@ export const openLoops = pgTable(
     status: openLoopStatus("status").notNull().default("open"),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     dedupeKey: text("dedupe_key"),
+    refinedText: text("refined_text"),
+    refinedAt: timestamp("refined_at", { withTimezone: true }),
   },
   (t) => ({
     projectOpenIdx: index("open_loops_project_open").on(t.projectId, t.status, t.mentionedAt),
     statusTimeIdx: index("open_loops_status_time").on(t.status, t.mentionedAt),
+  }),
+);
+
+// ----- daemon state (singleton, id = 1) -----
+export const daemonState = pgTable("daemon_state", {
+  id: smallint("id").primaryKey().default(1),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  lastTickAt: timestamp("last_tick_at", { withTimezone: true }),
+  lastEventAt: timestamp("last_event_at", { withTimezone: true }),
+  version: text("version").notNull().default("phase2"),
+  pid: integer("pid"),
+  socketPath: text("socket_path"),
+  watching: text("watching").array().notNull().default(sql`'{}'::text[]`),
+  scanQueue: integer("scan_queue").notNull().default(0),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ----- embedding models (provenance for embeddings rows) -----
+export const embeddingModels = pgTable(
+  "embedding_models",
+  {
+    id: serial("id").primaryKey(),
+    provider: text("provider").notNull(),
+    modelId: text("model_id").notNull(),
+    dimension: integer("dimension").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    uniq: uniqueIndex("embedding_models_provider_model").on(t.provider, t.modelId),
   }),
 );
 

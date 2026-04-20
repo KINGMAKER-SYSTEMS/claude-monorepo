@@ -30,7 +30,7 @@ export function registerStandup(program: Command): void {
       const days = Number.parseInt(opts.days ?? "7", 10) || 7;
       const cutoff = new Date(Date.now() - days * 86_400_000);
 
-      const [alertsRows, inFlight, stale, abandoned, openLoops, recentSessions] = await Promise.all([
+      const [alertsRows, inFlight, stale, abandoned, openLoops, recentSessions, runningInfra] = await Promise.all([
         db
           .select({
             id: schema.alerts.id,
@@ -117,6 +117,23 @@ export function registerStandup(program: Command): void {
           .where(and(isNotNull(schema.ccSessions.endedAt), gte(schema.ccSessions.endedAt, cutoff)))
           .orderBy(desc(schema.ccSessions.endedAt))
           .limit(10),
+
+        db
+          .select({
+            id: schema.infraResources.id,
+            kind: schema.infraResources.kind,
+            name: schema.infraResources.name,
+            status: schema.infraResources.status,
+            endpoint: schema.infraResources.endpoint,
+            metadata: schema.infraResources.metadata,
+            lastSeenAt: schema.infraResources.lastSeenAt,
+            projectName: schema.projects.name,
+          })
+          .from(schema.infraResources)
+          .leftJoin(schema.projects, eq(schema.infraResources.projectId, schema.projects.id))
+          .where(eq(schema.infraResources.status, "running"))
+          .orderBy(desc(schema.infraResources.lastSeenAt))
+          .limit(30),
       ]);
 
       const inFlightIds: string[] = inFlight.map((p: InFlightRow) => p.id);
@@ -169,6 +186,7 @@ export function registerStandup(program: Command): void {
               inFlight,
               openLoops,
               recentSessions,
+              runningInfra,
               staleCount: stale[0]?.count ?? 0,
               abandonedCount: abandoned[0]?.count ?? 0,
             },
@@ -186,6 +204,7 @@ export function registerStandup(program: Command): void {
         commitMap,
         openLoops,
         recentSessions,
+        runningInfra,
         staleCount: stale[0]?.count ?? 0,
         abandonedCount: abandoned[0]?.count ?? 0,
         days,
@@ -233,6 +252,16 @@ type SessionRow = {
   projectName: string | null;
 };
 
+type InfraRow = {
+  kind: string;
+  name: string;
+  status: string;
+  endpoint: string | null;
+  metadata: unknown;
+  lastSeenAt: Date | null;
+  projectName: string | null;
+};
+
 function renderStandup(args: {
   alerts: AlertRow[];
   inFlight: InFlightRow[];
@@ -240,6 +269,7 @@ function renderStandup(args: {
   commitMap: Map<string, { message: string | null; committedAt: Date | null }>;
   openLoops: OpenLoopRow[];
   recentSessions: SessionRow[];
+  runningInfra: InfraRow[];
   staleCount: number;
   abandonedCount: number;
   days: number;
@@ -337,6 +367,39 @@ function renderStandup(args: {
       const srcIcon = l.source === "transcript" ? "§" : l.source === "todo_comment" ? "⌕" : "·";
       console.log(`  ${pc.dim(srcIcon)} ${scope}  ${l.text.slice(0, 110)}`);
       console.log(`      ${pc.dim(formatRelativeTime(l.mentionedAt))}${l.sourceRef ? pc.dim("  " + l.sourceRef) : ""}`);
+    }
+  }
+  console.log("");
+
+  // RUNNING NOW
+  section("RUNNING NOW");
+  if (args.runningInfra.length === 0) {
+    console.log("  " + pc.dim("(nothing detected — docker + dev servers will appear here)"));
+  } else {
+    const containers = args.runningInfra.filter((r) => r.kind === "container");
+    const devServers = args.runningInfra.filter((r) => r.kind === "dev_server");
+    if (containers.length) {
+      console.log(pc.dim("  containers"));
+      for (const c of containers.slice(0, 10)) {
+        const meta = c.metadata as { image?: string; composeService?: string | null } | null;
+        const image = meta?.image ? pc.dim(meta.image) : "";
+        const scope = c.projectName ? pc.cyan(c.projectName) : pc.dim("—");
+        const svc = meta?.composeService ? pc.dim(`[${meta.composeService}]`) : "";
+        console.log(`    ${pc.bold(c.name)} ${svc}  ${scope}  ${image}`);
+        if (c.endpoint) console.log(`      ${pc.dim(c.endpoint)}`);
+      }
+      if (containers.length > 10) console.log(pc.dim(`    …and ${containers.length - 10} more`));
+    }
+    if (devServers.length) {
+      console.log(pc.dim("  dev servers"));
+      for (const d of devServers.slice(0, 10)) {
+        const meta = d.metadata as { framework?: string | null; pid?: number; command?: string } | null;
+        const scope = d.projectName ? pc.cyan(d.projectName) : pc.dim("—");
+        const fw = meta?.framework ? pc.yellow(meta.framework) : pc.dim(meta?.command ?? "?");
+        const pid = meta?.pid ? pc.dim(`pid ${meta.pid}`) : "";
+        console.log(`    ${pc.bold(d.endpoint ?? d.name)}  ${scope}  ${fw}  ${pid}`);
+      }
+      if (devServers.length > 10) console.log(pc.dim(`    …and ${devServers.length - 10} more`));
     }
   }
   console.log("");
