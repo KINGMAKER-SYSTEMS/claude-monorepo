@@ -1,0 +1,36 @@
+{
+  "name": "@brain/indexer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./discovery": "./src/discovery.ts",
+    "./scan": "./src/scan.ts",
+    "./alerts": "./src/alerts.ts",
+    "./transcript-sync": "./src/transcript-sync.ts",
+    "./infra-sync": "./src/infra-sync.ts",
+    "./scanners/transcripts": "./src/scanners/transcripts.ts",
+    "./scanners/project-context": "./src/scanners/project-context.ts",
+    "./scanners/infra": "./src/scanners/infra.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@brain/db": "workspace:*",
+    "@brain/shared": "workspace:*",
+    "drizzle-orm": "^0.34.0",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.1"
+  }
+}
