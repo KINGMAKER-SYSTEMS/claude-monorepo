@@ -255,7 +255,7 @@ type SessionRow = {
 type InfraRow = {
   kind: string;
   name: string;
-  status: string;
+  status: string | null;
   endpoint: string | null;
   metadata: unknown;
   lastSeenAt: Date | null;

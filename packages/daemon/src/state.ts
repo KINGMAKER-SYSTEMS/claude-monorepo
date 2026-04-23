@@ -25,12 +25,12 @@ export async function updateDaemonState(
       .insert(daemonState)
       .values({
         id: 1,
-        pid: patch.pid,
-        socketPath: patch.socketPath,
+        pid: patch.pid ?? null,
+        socketPath: patch.socketPath ?? null,
         watching: patch.watching ?? [],
         scanQueue: patch.scanQueue ?? 0,
-        lastTickAt: patch.lastTickAt,
-        lastEventAt: patch.lastEventAt,
+        lastTickAt: patch.lastTickAt ?? null,
+        lastEventAt: patch.lastEventAt ?? null,
         metadata: patch.metadata ?? {},
       })
       .onConflictDoUpdate({

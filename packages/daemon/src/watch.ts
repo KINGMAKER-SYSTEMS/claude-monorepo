@@ -21,7 +21,7 @@ export interface WatchOptions {
 }
 
 export class WatchManager {
-  private watcher?: FSWatcher;
+  private watcher?: FSWatcher | undefined;
   private timers = new Map<string, NodeJS.Timeout>();
   private readonly debounceMs: number;
   private readonly roots: string[];
