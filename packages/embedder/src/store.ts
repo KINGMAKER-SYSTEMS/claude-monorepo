@@ -60,10 +60,10 @@ export async function embedAndStore(
 
   // 2. Embed the remainder.
   const res = await embedder.embed({ inputs: todo.map((t) => t.text) });
-  const col = res.dim === 1536 ? "embedding_1536" : res.dim === 384 ? "embedding_384" : null;
+  const col = vectorColumnForDim(res.dim);
   if (!col) {
     throw new Error(
-      `embedder returned dim=${res.dim}; only 384 and 1536 columns exist on embeddings table`,
+      `embedder returned dim=${res.dim}; only 384, 768, and 1536 columns exist on embeddings table`,
     );
   }
 
@@ -100,7 +100,7 @@ export async function searchByVector(
 ): Promise<Array<{ ownerKind: string; ownerId: string; distance: number }>> {
   const db = getDb();
   const dim = queryVector.length;
-  const col = dim === 1536 ? "embedding_1536" : dim === 384 ? "embedding_384" : null;
+  const col = vectorColumnForDim(dim);
   if (!col) throw new Error(`unsupported query dim: ${dim}`);
   const literal = `[${queryVector.join(",")}]`;
   const limit = opts.limit ?? 12;
@@ -128,4 +128,11 @@ export async function searchByVector(
 
 export function hashText(text: string): string {
   return createHash("sha256").update(text).digest("hex");
+}
+
+function vectorColumnForDim(dim: number): string | null {
+  if (dim === 1536) return "embedding_1536";
+  if (dim === 768) return "embedding_768";
+  if (dim === 384) return "embedding_384";
+  return null;
 }

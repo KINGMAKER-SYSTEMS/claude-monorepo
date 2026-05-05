@@ -21,18 +21,20 @@ export async function updateDaemonState(
   },
 ): Promise<void> {
   try {
+    const values: Record<string, unknown> = {
+      id: 1,
+      watching: patch.watching ?? [],
+      scanQueue: patch.scanQueue ?? 0,
+      metadata: patch.metadata ?? {},
+    };
+    if (patch.pid !== undefined) values["pid"] = patch.pid;
+    if (patch.socketPath !== undefined) values["socketPath"] = patch.socketPath;
+    if (patch.lastTickAt !== undefined) values["lastTickAt"] = patch.lastTickAt;
+    if (patch.lastEventAt !== undefined) values["lastEventAt"] = patch.lastEventAt;
+
     await db
       .insert(daemonState)
-      .values({
-        id: 1,
-        pid: patch.pid ?? null,
-        socketPath: patch.socketPath ?? null,
-        watching: patch.watching ?? [],
-        scanQueue: patch.scanQueue ?? 0,
-        lastTickAt: patch.lastTickAt ?? null,
-        lastEventAt: patch.lastEventAt ?? null,
-        metadata: patch.metadata ?? {},
-      })
+      .values(values as never)
       .onConflictDoUpdate({
         target: daemonState.id,
         set: {

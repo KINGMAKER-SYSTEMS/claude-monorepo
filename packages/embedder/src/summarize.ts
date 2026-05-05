@@ -195,3 +195,87 @@ Write 2-3 sentences (≤ 80 words total). Cover: what kind of project this is, t
   if (!text) throw new Error("anthropic returned empty text");
   return text;
 }
+
+/**
+ * Fallback path: embed raw project facts as `project_summary` without calling
+ * an LLM. Lets `brain ask` return results before the user has an Anthropic
+ * key. Skips projects that already have an LLM-authored summary so we don't
+ * clobber higher-quality embeddings.
+ */
+export async function embedProjectFacts(
+  opts: { limit?: number } = {},
+): Promise<{ embedded: number; skipped: number }> {
+  const log = childLogger({ scanner: "embed-facts" });
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: schema.projects.id,
+      name: schema.projects.name,
+      rootPath: schema.projects.rootPath,
+      kind: schema.projects.kind,
+      framework: schema.projects.framework,
+      status: schema.projects.status,
+      readmeFirstPara: schema.projects.readmeFirstPara,
+      serviceTokens: schema.projects.serviceTokens,
+      deployTargets: schema.projects.deployTargets,
+      summary: schema.projects.summary,
+      summarySource: schema.projects.summarySource,
+    })
+    .from(schema.projects)
+    .limit(opts.limit ?? 500);
+
+  const toEmbed: { ownerId: string; text: string }[] = [];
+  let skipped = 0;
+  for (const p of rows) {
+    if (p.summary && p.summarySource === "llm") {
+      skipped++;
+      continue;
+    }
+    const text = factsToText(p);
+    if (!text) {
+      skipped++;
+      continue;
+    }
+    toEmbed.push({ ownerId: p.id, text });
+  }
+
+  if (toEmbed.length === 0) {
+    log.info({ skipped }, "no projects to embed");
+    return { embedded: 0, skipped };
+  }
+
+  const embedder = createEmbedder();
+  const batch = toEmbed.map((t) => ({
+    ownerKind: "project_summary" as const,
+    ownerId: t.ownerId,
+    text: t.text,
+  }));
+  let embedded = 0;
+  for (let i = 0; i < batch.length; i += 64) {
+    const slice = batch.slice(i, i + 64);
+    const res = await embedAndStore(embedder, slice);
+    embedded += res.stored;
+  }
+  log.info({ embedded, skipped }, "fact embedding pass complete");
+  return { embedded, skipped };
+}
+
+function factsToText(p: {
+  name: string;
+  rootPath: string;
+  kind: string;
+  framework: string | null;
+  status: string;
+  readmeFirstPara: string | null;
+  serviceTokens: string[];
+  deployTargets: string[];
+}): string {
+  const parts: string[] = [
+    `${p.name} — ${p.kind}${p.framework ? ` (${p.framework})` : ""}, status ${p.status}.`,
+  ];
+  if (p.serviceTokens.length > 0) parts.push(`Uses: ${p.serviceTokens.join(", ")}.`);
+  if (p.deployTargets.length > 0) parts.push(`Deploys to: ${p.deployTargets.join(", ")}.`);
+  if (p.readmeFirstPara) parts.push(p.readmeFirstPara.slice(0, 600));
+  parts.push(`Path: ${p.rootPath}`);
+  return parts.join(" ").trim();
+}

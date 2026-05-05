@@ -4,6 +4,7 @@ import pc from "picocolors";
 import { getDb, schema } from "@brain/db";
 import {
   createEmbedder,
+  embedProjectFacts,
   searchByVector,
   summarizeProjects,
   refineOpenLoops,
@@ -77,7 +78,15 @@ export function registerAsk(program: Command): void {
     .description("generate LLM project summaries + embed them")
     .option("-n, --limit <n>", "max projects", (v) => Number(v))
     .option("--force", "regenerate even if fingerprint matches")
-    .action(async (opts: { limit?: number; force?: boolean }) => {
+    .option("--no-llm", "skip Claude; embed raw project facts (no API key needed)")
+    .action(async (opts: { limit?: number; force?: boolean; llm?: boolean }) => {
+      if (opts.llm === false) {
+        const o: { limit?: number } = {};
+        if (opts.limit !== undefined) o.limit = opts.limit;
+        const res = await embedProjectFacts(o);
+        console.log(pc.green(`${res.embedded} embedded · ${res.skipped} skipped (no-llm)`));
+        return;
+      }
       const o: { limit?: number; skipIfFresh?: boolean } = {};
       if (opts.limit !== undefined) o.limit = opts.limit;
       if (opts.force) o.skipIfFresh = false;

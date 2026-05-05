@@ -14,6 +14,8 @@ import { registerTranscripts } from "./commands/transcripts.js";
 import { registerAlerts } from "./commands/alerts.js";
 import { registerWatch } from "./commands/watch.js";
 import { registerAsk } from "./commands/ask.js";
+import { registerDoctor } from "./commands/doctor.js";
+import { registerMcp } from "./commands/mcp.js";
 
 const program = new Command();
 
@@ -34,6 +36,8 @@ registerSearch(program);
 registerScan(program);
 registerWatch(program);
 registerAsk(program);
+registerDoctor(program);
+registerMcp(program);
 
 async function main(): Promise<void> {
   try {

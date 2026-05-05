@@ -355,6 +355,7 @@ export const openLoops = pgTable(
     refinedAt: timestamp("refined_at", { withTimezone: true }),
   },
   (t) => ({
+    dedupeUnique: uniqueIndex("open_loops_dedupe").on(t.dedupeKey),
     projectOpenIdx: index("open_loops_project_open").on(t.projectId, t.status, t.mentionedAt),
     statusTimeIdx: index("open_loops_status_time").on(t.status, t.mentionedAt),
   }),
@@ -408,6 +409,7 @@ export const alerts = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
   },
   (t) => ({
+    dedupeUnique: uniqueIndex("alerts_dedupe").on(t.dedupeKey),
     openSeverityIdx: index("alerts_open_severity").on(t.status, t.severity, t.detectedAt),
   }),
 );

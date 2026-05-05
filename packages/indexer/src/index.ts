@@ -8,3 +8,5 @@ export * from "./transcript-sync.js";
 export * from "./alerts.js";
 export * from "./scanners/infra.js";
 export * from "./infra-sync.js";
+export * from "./queries.js";
+export * as contracts from "./contracts.js";
