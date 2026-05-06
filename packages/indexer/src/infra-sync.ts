@@ -123,12 +123,17 @@ async function upsertInfra(a: UpsertArgs): Promise<void> {
   // Raw upsert keyed by the (kind, name, coalesce(project_id, ...)) unique
   // index defined in migration 0003. Drizzle's builder can't express the
   // coalesce-in-index directly.
+  //
+  // The DB client is configured with `prepare: false`, which serializes every
+  // bind parameter as a string. That path doesn't recognize Date instances —
+  // pass them as ISO strings explicitly.
+  const stamp = a.asOf.toISOString();
   await db.execute(sql`
     INSERT INTO infra_resources
       (kind, name, project_id, status, endpoint, metadata, first_seen_at, last_seen_at)
     VALUES
       (${a.kind}, ${a.name}, ${a.projectId}, ${a.status}, ${a.endpoint},
-       ${JSON.stringify(a.metadata)}::jsonb, ${a.asOf}, ${a.asOf})
+       ${JSON.stringify(a.metadata)}::jsonb, ${stamp}, ${stamp})
     ON CONFLICT (kind, name, COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid))
     DO UPDATE SET
       status = EXCLUDED.status,
