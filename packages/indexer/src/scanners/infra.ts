@@ -82,7 +82,7 @@ export function parseDockerPsOutput(stdout: string): DockerContainer[] {
         name: row["Names"] ?? "",
         image: row["Image"] ?? "",
         status: row["Status"] ?? "",
-        state: row["State"] ?? inferState(row["Status"] ?? ""),
+        state: row["State"] || inferState(row["Status"] ?? ""),
         ports: row["Ports"] ?? "",
         labels,
         ...(composeProject !== undefined && { composeProject }),

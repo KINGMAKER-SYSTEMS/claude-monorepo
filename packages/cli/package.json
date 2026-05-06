@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "start": "tsx src/bin.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Brain daemon LaunchAgent. Installed into ~/Library/LaunchAgents/ by
+  scripts/install-launchagent.sh, which substitutes the {{...}} placeholders
+  with values from the caller's environment.
+
+  Start/stop commands after install:
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.brain.daemon.plist
+    launchctl kickstart -k gui/$(id -u)/com.brain.daemon
+    launchctl bootout    gui/$(id -u)/com.brain.daemon
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.brain.daemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>{{PNPM_BIN}}</string>
+      <string>--dir</string>
+      <string>{{REPO_DIR}}</string>
+      <string>exec</string>
+      <string>tsx</string>
+      <string>{{REPO_DIR}}/packages/cli/src/bin.ts</string>
+      <string>watch</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>{{REPO_DIR}}</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>{{PATH}}</string>
+      <key>HOME</key>
+      <string>{{HOME}}</string>
+      <key>DATABASE_URL</key>
+      <string>{{DATABASE_URL}}</string>
+      <key>ANTHROPIC_API_KEY</key>
+      <string>{{ANTHROPIC_API_KEY}}</string>
+      <key>OPENAI_API_KEY</key>
+      <string>{{OPENAI_API_KEY}}</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+      <key>Crashed</key>
+      <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/.local/state/brain/launchd.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/.local/state/brain/launchd.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>
