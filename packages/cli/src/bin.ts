@@ -16,6 +16,8 @@ import { registerWatch } from "./commands/watch.js";
 import { registerAsk } from "./commands/ask.js";
 import { registerDoctor } from "./commands/doctor.js";
 import { registerMcp } from "./commands/mcp.js";
+import { registerSummarize } from "./commands/summarize.js";
+import { registerRefine } from "./commands/refine.js";
 
 const program = new Command();
 
@@ -36,6 +38,8 @@ registerSearch(program);
 registerScan(program);
 registerWatch(program);
 registerAsk(program);
+registerSummarize(program);
+registerRefine(program);
 registerDoctor(program);
 registerMcp(program);
 
