@@ -33,3 +33,21 @@ _Running log of what's worked and what hasn't for the morning-stand-up scheduled
 | WO-07 | 6/02 | ocean-surface exposed Google API key | 🔴 alert #1 still OPEN; file actively edited |
 | WO-08 | 6/02 | RunPod low balance | 🔴 escalated → volume deletion scheduled |
 | WO-09 | 6/03 | Supabase `tracker-auth` RLS / sensitive columns | 🔴 new, open |
+
+## 2026-06-03 (supplement run)
+
+- **OBSERVATION:** First run probed only the brain MCP tool and got "Command failed with no output," then stopped. The underlying CLI (`~/Library/pnpm/brain doctor`) was never invoked. CLI throws `Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@brain/daemon' imported from packages/cli/src/commands/watch.ts` — a fully diagnostic error that points at the workspace not being linked.
+- **FIX:** When the brain MCP tool returns "no output," the gather phase should fall through to the CLI before declaring DEGRADED. The CLI surfaces the real root cause; the MCP wrapper swallows it.
+- **VALIDATED:** Pending — apply to tomorrow's run.
+
+- **OBSERVATION:** iMessage was dropped from canonical pulls 14+ standups ago. Supplement run pulled it anyway and immediately caught a Comcast outage heads-up for 6/04 — directly affects tomorrow's standup feasibility.
+- **FIX:** Reinstate iMessage in canonical, bounded to last 24h, no allowlist filter. If signal-to-noise tanks again over 7 runs, re-evaluate then.
+- **VALIDATED:** Today's run, yes — signal-positive on first re-pull.
+
+- **OBSERVATION:** First run trusted the `+cc` brief on the Obsidian-Pi-Agent missing-module claim. Supplement run verified via `gh api repos/.../contents/scripts/lib/` and confirmed the brief was correct, but the API receipt is the proof.
+- **FIX:** For any LIVE-classified security/prod-class claim sourced from `+cc`, gather phase should perform an independent verification (gh api, supabase advisors, direct git/grep). If verification fails or contradicts, downgrade or flag for John.
+- **VALIDATED:** Pending — but supplement run's discipline here is the model.
+
+- **OBSERVATION:** 22 historical standup files are untracked in `~/dev/claude-monorepo/standups/` on the main worktree's `gitbutler/workspace` branch. Each scheduled-task run spawns its own worktree and PRs upward, so no run ever lands the file on main locally.
+- **FIX:** Two options. (a) The scheduled task writes to the main worktree's `standups/` via absolute path before exiting; or (b) a one-time `git add standups/ && git commit` on the main worktree, then trust the PR flow going forward. Prefer (a) — defends against future drift.
+- **VALIDATED:** Pending.
